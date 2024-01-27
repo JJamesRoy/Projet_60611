@@ -1,0 +1,4 @@
+library(tidyverse)
+
+dat = read.csv("data_final.csv", sep = ";")
+
