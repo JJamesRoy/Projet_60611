@@ -1,4 +1,30 @@
-library(tidyverse)
 
+```{r}
+library(tidyverse)
+library(lubridate)
+```
+
+
+```{r}
 dat = read.csv("data_final.csv", sep = ";")
+```
+
+```{r}
+var_fact = c("all_pedest", "median", "green_stra", "half_phase", "any_ped_pr", "ped_countd", "lt_protect", "lt_restric", "lt_prot_re", "any_exclus", "borough", "curb_exten", "all_red_an", "new_half_r")
+
+dat = dat %>% select(-c("street_1", "street_2", "X", "X.1"))
+dat$date_ = as.Date(dat$date_, "%d/%m/%Y")
+dat = dat %>% 
+  mutate_at(vars(var_fact), as.factor)
+```
+
+```{r}
+summary(dat)
+```
+
+
+```{r}
+mod = lm(acc ~ .-rue_1-rue_2-date_, data = dat)
+summary(mod)
+```
 
