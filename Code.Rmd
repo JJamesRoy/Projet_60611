@@ -1,5 +1,4 @@
-<<<<<<< HEAD
-=======
+
 ---
 title: "TRAVAIL DE SESSION – ÉTUDE DE CAS"
 subtitle: "MATH60611 - Méthodes avancées en exploitation de données"
@@ -32,11 +31,13 @@ prioriser les intersections les plus à risque dans le but d’améliorer les in
 
 Votre analyse devra se baser sur une modélisation des accidents observés dans les 10
 dernières années (variable acc)
->>>>>>> ea9003c1a8001978f3c570e6c03295783cfb96f3
 
 ```{r}
 library(tidyverse)
 library(lubridate)
+library(sf)
+library(leaflet)
+library(RColorBrewer)
 ```
 
 
@@ -63,6 +64,35 @@ mod = lm(acc ~ .-rue_1-rue_2-date_, data = dat)
 summary(mod)
 ```
 
+boxplot
+```{r}
+
+is_numeric_or_factor <- function(x) { is.numeric(x) || is.factor(x) }
+
+numeric_or_factor_vars <- sapply(dat, is_numeric_or_factor)
+
+
+#numeric_or_factor_vars <- numeric_or_factor_vars[-(1:3)]
+
+data_numeric_or_factor <- dat[, numeric_or_factor_vars]
+
+
+for(var in names(data_numeric_or_factor)) {
+  if(is.factor(dat[[var]])) {
+    # count plot au lieu de box_plot pour les facteur
+    p <- ggplot(dat, aes_string(x = var)) +
+      geom_bar() +
+      labs(title = paste("Compte de", var), x = var)
+  } else {
+    # boxplot pour les numérique
+    p <- ggplot(dat, aes_string(y = var)) +
+      geom_boxplot() +
+      labs(title = paste("Boxplot de", var), y = var)
+  }
+  print(p)
+}
+
 ```
+
 
 
