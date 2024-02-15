@@ -52,6 +52,8 @@ dat = dat %>% select(-c("street_1", "street_2", "X", "X.1"))
 dat$date_ = as.Date(dat$date_, "%d/%m/%Y")
 dat = dat %>% 
   mutate_at(vars(var_fact), as.factor)
+
+dat[["ln_distdt"]] = ifelse(is.na(dat[["ln_distdt"]]), 0, as.numeric(dat[["ln_distdt"]]))
 ```
 
 ```{r}
@@ -60,7 +62,7 @@ summary(dat)
 
 
 ```{r}
-mod = lm(acc ~ .-rue_1-rue_2-date_, data = dat)
+mod = lm(acc ~ .-rue_1-rue_2-date_-x-y-int_no, data = dat)
 summary(mod)
 ```
 
@@ -94,5 +96,22 @@ for(var in names(data_numeric_or_factor)) {
 
 ```
 
+```{r}
+dat_num = dat[,7:20]
+
+for (col in names(dat_num)) {
+  dat_num[[col]] <- as.numeric(dat_num[[col]])
+}
+
+#columns_to_remove <- grep("^ln", names(dat_num))
+
+# Supprimer les colonnes commençant par "ln"
+#dat_num <- dat_num[, -columns_to_remove]
+
+dat_num = as.data.frame(scale(dat_num))
+
+
+dat_fa = factanal(dat_num, factors = 2, na.action = )
+```
 
 
