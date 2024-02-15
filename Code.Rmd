@@ -123,6 +123,8 @@ dat_num = as.data.frame(scale(dat_num))
 
 
 dat_fa = factanal(dat_num, factors = 2, na.action = )
+
+
 ```
 
 visualisation de tous les regression linéaire simple
@@ -189,11 +191,8 @@ mean((predRF-dat_test$acc)^2)
 
 varImpPlot(rf)
 
-importance <- importance %>%
+importance <- varImp(rf) %>%
   arrange(desc(Overall))
-
-
-
 
 
 ```
