@@ -92,7 +92,27 @@ for(var in names(data_numeric_or_factor)) {
   print(p)
 }
 
+
 ```
 
+regarder les combinaisons linéaire possible
+```{r}
 
+for (var_name in names(dat)) {
+  if (is.numeric(dat[[var_name]])) {
+    
+    formula <- as.formula(paste("acc ~", var_name))
+    mod1 <- lm(formula, data = dat)
+    
+    plot <- ggplot(dat, aes_string(x=var_name, y="acc")) +
+      geom_smooth(method = "lm") +
+      geom_abline(intercept = mod1$coefficients[1], slope = mod1$coefficients[2])+
+      geom_point() +
+      labs(x=var_name) 
+      
+    print(plot)
+  }
+}
+
+```
 
