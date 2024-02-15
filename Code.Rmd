@@ -37,6 +37,10 @@ library(lubridate)
 library(sf)
 library(leaflet)
 library(RColorBrewer)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(caret)
 ```
 
 
@@ -57,6 +61,10 @@ dat[["ln_distdt"]] = ifelse(is.na(dat[["ln_distdt"]]), 0, as.numeric(dat[["ln_di
 
 ```{r}
 summary(dat)
+
+sum(is.na(dat))
+sapply(dat, function(x) sum(is.na(x)))
+
 ```
 
 
@@ -67,6 +75,8 @@ summary(mod)
 
 boxplot
 ```{r}
+
+
 
 is_numeric_or_factor <- function(x) { is.numeric(x) || is.factor(x) }
 
@@ -132,7 +142,106 @@ for (var_name in names(dat)) {
     print(plot)
   }
 }
+
 ```
+Séparation en validation et test 
+```{r}
+dat2 <- dat %>% 
+  select(-rue_1, -rue_2, -date_, -x, -y, -int_no)
+
+# creation de data set train et test (pas besoin de de train pcq utilise CV)
+set.seed(1234)
+training_indices <- createDataPartition(dat2$acc, p = 0.7, list = FALSE)
+dat_train <- dat2[training_indices, ]
+dat_test <- dat2[-training_indices, ]
+
+```
+
+arbre simple
+```{r}
+tree <- rpart(acc ~ ., data = dat_train,
+              control = rpart.control(xval = 5, minisplit=20,minibucket=5, cp=0))
+
+rpart.plot(tree)
+tree$cptable
+
+elague <- prune(tree, cp=tree$cp[which.min(tree$cp[, "xerror"]), "CP"])
+
+rpart.plot(elague)
+
+predTr <-predict(elague, newdata = dat_test)
+
+mean((predTr-dat_test$acc)^2)
+
+
+```
+
+
+random forest
+```{r}
+
+set.seed(123)
+rf <- randomForest(acc ~. ,data = dat_train, ntree=500)
+
+predRF <- predict(rf,newdata = dat_test)
+
+mean((predRF-dat_test$acc)^2)
+
+varImpPlot(rf)
+
+importance <- importance %>%
+  arrange(desc(Overall))
+
+
+
+
+
+```
+Creation de l'indice
+L'indice est mauvais, mais je voulais juste pas me casser la tete
+```{r}
+dat3 <- dat %>% 
+  select(rue_1, rue_2, date_, x, y, int_no,acc,ln_cti,ln_cli,ln_cri)
+
+
+dat3 <- dat3 %>% mutate(indice = ln_cti + ln_cli + ln_cri)
+
+ordreacc <- dat3 %>% select(acc,rue_1,rue_2) %>% 
+  arrange(desc(acc))
+
+ordreIN <- dat3 %>% select(indice,rue_1,rue_2) %>% 
+  arrange(desc(indice))
+
+cor(dat3$acc,dat3$indice)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
