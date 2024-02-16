@@ -194,36 +194,34 @@ varImpPlot(rf)
 
 importance <- varImp(rf) %>%
   arrange(desc(Overall))
-
+importance
 ```
 
 Creation de l'indice
 L'indice est mauvais, mais je voulais juste pas me casser la tete
 ```{r}
 dat3 <- dat %>% 
-  select(rue_1, rue_2, date_, x, y, int_no,acc,ln_cti,ln_cli,ln_cri,borough)
+  select(int_no,rue_1, rue_2,acc,cti,cli,cri,borough)
 
 dat3 <- dummy_cols(dat3, select_columns = "borough", remove_selected_columns = TRUE)
 
-dat3[, 8:38] <- lapply(dat3[, 8:38], function(x) scale(x, center = TRUE, scale = TRUE))
+#dat3[, 4:34] <- lapply(dat3[, 4:34], function(x) scale(x, center = T, scale = TRUE))
 
 #dat3 <- dat3 %>% mutate(across(11:38, ~ . * 980))
 
 
 
 # ajout des poids
-manual_sum <- apply(dat3[, 11:38], 1, sum)
-dat3 <- dat3 %>% mutate(indice =ln_cti + ln_cli + ln_cri +manual_sum)
+manual_sum <- apply(dat3[, 7:34], 1, sum)
 
-ordreacc <- dat3 %>% select(acc,rue_1,rue_2) %>% 
-  arrange(desc(acc))
+dat3 <- dat3 %>% mutate(indice =1587*cti + 797*cli + 633*cri)
 
-ordreIN <- dat3 %>% select(indice,rue_1,rue_2) %>% 
+
+ordre <- dat3 %>% select(acc,indice,rue_1,rue_2) %>% 
   arrange(desc(indice))
 
 cor(dat3$acc,dat3$indice)
 
-levels(dat$borough)
 ```
 
 
