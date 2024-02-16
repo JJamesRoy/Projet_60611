@@ -61,6 +61,45 @@ dat[["ln_distdt"]] = ifelse(is.na(dat[["ln_distdt"]]), 0, as.numeric(dat[["ln_di
 ```
 
 ```{r}
+# variable qui joue sur les accidents ou le risque
+facteur_risque <- c(
+  "all_pedest",
+  "pi",
+  "fli",
+  "fri",
+  "fti",
+  "tot_crossw",
+  "number_of",
+  "avg_crossw",
+  "tot_road_w",
+  "median",
+  "green_stra",
+  "any_ped_pr",
+  "ped_countd",
+  "lt_protect",
+  "lt_restric",
+  "lt_prot_re",
+  "parking",
+  "total_lane",
+  "of_exclusi",
+  "any_exclus",
+  "commercial",
+  "curb_exten",
+  "all_red_an",
+  "new_half_r"
+)
+
+# Différente mesure de risque 
+mesure_risque = c("cli",
+                  "cri",
+                  "cti",
+                  "acc")
+```
+
+
+
+
+```{r}
 summary(dat)
 
 sum(is.na(dat))
