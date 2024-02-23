@@ -63,13 +63,21 @@ dat[["ln_distdt"]] = ifelse(is.na(dat[["ln_distdt"]]), 0, as.numeric(dat[["ln_di
 ```{r}
 # variable qui joue sur les accidents ou le risque
 facteur_risque <- c(
+  "acc",
   "all_pedest",
-  "pi",
-  "fli",
-  "fri",
-  "fti",
+  "ln_cli",
+  "ln_cri",
+  "ln_cti",
+  #"pi",
+  #"fli",
+  #"fri",
+  #"fti",
+  "ln_pi",
+  "ln_fli",
+  "ln_fri",
+  "ln_fti",
   "tot_crossw",
-  "number_of",
+  "number_of_",
   "avg_crossw",
   "tot_road_w",
   "median",
@@ -86,30 +94,37 @@ facteur_risque <- c(
   "commercial",
   "curb_exten",
   "all_red_an",
-  "new_half_r"
+  "new_half_r",
+  "ln_distdt"
+  #"distdt"
 )
+```
 
-# Différente mesure de risque 
-mesure_risque = c("cli",
-                  "cri",
-                  "cti",
-                  "acc")
+
+```{r}
+dat = dat %>% mutate(check = ifelse(cli == 0 & cri == 0 & cti == 0, 1,0))
+
+dat_check = dat[dat$check==1,]
+
+dat = dat %>% 
+    mutate(pi = if_else(check == 1, median(dat$pi), pi),
+         cri = if_else(check == 1, median(dat$cri), cri),
+         cli = if_else(check == 1, median(dat$cli), cli),
+         cti = if_else(check == 1, median(dat$cti), cti),
+         ln_cti = if_else(check == 1, median(dat$ln_cti), ln_cti),
+         ln_cli = if_else(check == 1, median(dat$ln_cli), ln_cli),
+         ln_cri = if_else(check == 1, median(dat$ln_cri), ln_cri))
+
+#dat_test = dat %>% mutate(test = fli+fri+fti)
+#summary(dat_test[,c("test", "fi")])
+# Test pour voir s'il y a des incohérences...
 ```
 
 
 
 
 ```{r}
-summary(dat)
-
-sum(is.na(dat))
-sapply(dat, function(x) sum(is.na(x)))
-
-```
-
-
-```{r}
-mod = lm(acc ~ .-rue_1-rue_2-date_-x-y-int_no, data = dat)
+mod = lm(acc ~ ., data = dat[, facteur_risque, drop = FALSE])
 summary(mod)
 ```
 
