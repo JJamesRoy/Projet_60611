@@ -33,11 +33,14 @@ dernières années (variable acc)
 
 ```{r}
 library(tidyverse)
+library(glmnet)
+library(grpreg)
+library(rpart)
+library(randomForest)
 library(lubridate)
 library(sf)
 library(leaflet)
 library(RColorBrewer)
-library(rpart)
 library(rpart.plot)
 library(randomForest)
 library(caret)
@@ -52,13 +55,183 @@ dat = read.csv("data_final.csv", sep = ";")
 ```{r}
 var_fact = c("all_pedest", "median", "green_stra", "half_phase", "any_ped_pr", "ped_countd", "lt_protect", "lt_restric", "lt_prot_re", "any_exclus", "borough", "curb_exten", "all_red_an", "new_half_r")
 
-dat = dat %>% select(-c("street_1", "street_2", "X", "X.1"))
-dat$date_ = as.Date(dat$date_, "%d/%m/%Y")
+dat = dat %>% dplyr::select(-c("street_1", "street_2", "X", "X.1", "rue_1", "rue_2", "date_", "x", "y"))
+#dat$date_ = as.Date(dat$date_, "%d/%m/%Y")
 dat = dat %>% 
   mutate_at(vars(var_fact), as.factor)
 
 dat[["ln_distdt"]] = ifelse(is.na(dat[["ln_distdt"]]), 0, as.numeric(dat[["ln_distdt"]]))
 ```
+```{r}
+datdum=dummy_cols(dat, remove_first_dummy=TRUE, remove_selected_columns=TRUE)
+```
+
+
+```{r}
+dat = dat %>% mutate(check = ifelse(cli == 0 & cri == 0 & cti == 0, 1,0))
+
+dat_check = dat[dat$check==1,]
+
+dat = dat %>% 
+    mutate(pi = if_else(check == 1, median(dat$pi), pi),
+         cri = if_else(check == 1, median(dat$cri), cri),
+         cli = if_else(check == 1, median(dat$cli), cli),
+         cti = if_else(check == 1, median(dat$cti), cti),
+         ln_cti = if_else(check == 1, median(dat$ln_cti), ln_cti),
+         ln_cli = if_else(check == 1, median(dat$ln_cli), ln_cli),
+         ln_cri = if_else(check == 1, median(dat$ln_cri), ln_cri))
+
+#dat_test = dat %>% mutate(test = fli+fri+fti)
+#summary(dat_test[,c("test", "fi")])
+# Test pour voir s'il y a des incohérences...
+```
+
+```{r}
+set.seed(489565)
+ntrain=615
+ntest=nrow(dat)-ntrain
+indtrain=sample(1:nrow(dat),ntrain,replace=FALSE)
+```
+
+```{r}
+xdum=datdum
+xdum$acc=NULL
+xdum=as.matrix(xdum)
+dattrain=dat[indtrain,]
+dattest=dat[-indtrain,]
+datdumtrain=datdum[indtrain,]
+datdumtest=datdum[-indtrain,]
+xdumtrain=xdum[indtrain,]
+xdumtest=xdum[-indtrain,]
+```
+
+```{r}
+wrapglmnet=function(xtrain,ytrain,xtest,ytest=NULL,alpha)
+{
+library(glmnet)
+par(mfrow=c(2,2))
+plot(glmnet(x=xtrain,y=ytrain,alpha=alpha),xvar = "lambda", label = TRUE)
+cv=cv.glmnet(x=xtrain,y=ytrain, alpha=alpha)
+plot(cv)
+pred=predict(cv,new=xtest,s="lambda.min")
+pred1se=predict(cv,new=xtest,s="lambda.1se")
+err=NA
+if(!is.null(ytest))
+{
+plot(ytest,pred)
+plot(ytest,pred1se)
+err=data.frame(mean(abs(pred-ytest)),mean((pred-ytest)^2),
+mean(abs(pred1se-ytest)),mean((pred1se-ytest)^2))
+names(err)=c("MAE", "MSE", "MAE_1SE","MSE_1SE")
+}
+co=predict(cv,s="lambda.min",type="coefficients")
+co=as.matrix(co)
+co=co[co[,1] != 0,,drop=FALSE]
+co1se=predict(cv,s="lambda.1se",type="coefficients")
+co1se=as.matrix(co1se)
+co1se=co1se[co1se[,1] != 0,,drop=FALSE]
+out=list(err,co,co1se,pred,pred1se)
+names(out)=c("error","coef","coef1se","pred","pred1se")
+out
+}
+```
+
+
+```{r}
+lmfit=lm(acc~.,data=datdumtrain)
+predlmfit=predict(lmfit,newdata=datdumtest)
+
+errlmfit=data.frame(mean(abs(predlmfit-datdumtest$acc)),mean((predlmfit-datdumtest$acc)^2))
+names(errlmfit)=c("MAE","MSE")
+errlmfit
+```
+
+
+```{r}
+lasso=wrapglmnet(xdumtrain,datdumtrain$acc,xdumtest, datdumtest$acc,1)
+dim(lasso$coef)
+
+lasso$error
+```
+
+```{r}
+ridge=wrapglmnet(xdumtrain,datdumtrain$acc,xdumtest, datdumtest$acc,0)
+
+dim(ridge$coef)
+
+ridge$error
+```
+
+```{r}
+cv.relax=cv.glmnet(x=xdumtrain,y=datdumtrain$acc, alpha=1,relax=TRUE)
+plot(cv.relax)
+```
+
+```{r}
+pred=predict(cv.relax,new=xdumtest,s="lambda.min",gamma="gamma.min")
+ytest=datdumtest$acc
+errlassrel=data.frame(MAE=mean(abs(pred-ytest)),MSE=mean((pred-ytest)^2))
+errlassrel
+```
+```{r}
+group=c(1:50,rep(53,27))
+grlassofit=grpreg(xdumtrain, datdumtrain$acc, group, penalty="grLasso")
+plot(grlassofit)
+
+grlassofitcv=cv.grpreg(xdumtrain, datdumtrain$acc, group,seed=1234,penalty="grLasso")
+coefgrlasso=predict(grlassofitcv,type="coefficients")
+predgrlasso=predict(grlassofitcv,X=xdumtest)
+errgrlasso=data.frame(mean(abs(predgrlasso-datdumtest$acc)),mean((predgrlasso-datdumtest$acc)^2))
+names(errgrlasso)=c("MAE","MSE")
+row.names(errgrlasso)=c("group lasso")
+```
+
+```{r}
+gelcv=cv.grpreg(xdumtrain, datdumtrain$acc, group, seed=1234,penalty="gel")
+coefgel=predict(gelcv,type="coefficients")
+predgel=predict(gelcv,X=xdumtest)
+errgel=data.frame(mean(abs(predgel-datdumtest$acc)),mean((predgel-datdumtest$acc)^2))
+names(errgel)=c("MAE","MSE")
+row.names(errgel)=c("exponential lasso")
+errgel
+
+```
+
+```{r}
+rptree=rpart(acc~.,data=dattrain,method="anova",control = rpart.control(xval = 10, minsplit=10, minbucket = 3, cp = 0))
+rptreepruned=prune(rptree,cp=rptree$cp[which.min(rptree$cp[,"xerror"]),"CP"])
+predrpart=predict(rptreepruned,newdata=dattest)
+errrpart=data.frame(mean(abs(predrpart-datdumtest$acc)),mean((predrpart-datdumtest$acc)^2))
+names(errrpart)=c("MAE","MSE")
+row.names(errrpart)=c("single tree (rpart)")
+errrpart
+```
+
+```{r}
+rf=randomForest(acc~.,data=dattrain,ntree=500)
+predrf=predict(rf,newdata=dattest)
+errrf=data.frame(mean(abs(predrf-datdumtest$acc)),mean((predrf-datdumtest$acc)^2))
+names(errrf)=c("MAE","MSE")
+row.names(errrf)=c("random forest")
+errrf
+
+virf = importance(rf)
+varImpPlot(rf)
+```
+
+
+```{r}
+allres=rbind(lasso$err[,1:2],ridge$err[,1:2],errlmfit,errlassrel[,1:2])
+row.names(allres)=c("lasso","ridge","OLS","relaxed lasso")
+allres=rbind(allres,errgrlasso)
+allres=rbind(allres,errgel)
+allres=rbind(allres,errrpart)
+allres=rbind(allres,errrf)
+allres[order(allres[,1]),]
+```
+
+
+------- 
 
 ```{r}
 # variable qui joue sur les accidents ou le risque
@@ -99,28 +272,6 @@ facteur_risque <- c(
   #"distdt"
 )
 ```
-
-
-```{r}
-dat = dat %>% mutate(check = ifelse(cli == 0 & cri == 0 & cti == 0, 1,0))
-
-dat_check = dat[dat$check==1,]
-
-dat = dat %>% 
-    mutate(pi = if_else(check == 1, median(dat$pi), pi),
-         cri = if_else(check == 1, median(dat$cri), cri),
-         cli = if_else(check == 1, median(dat$cli), cli),
-         cti = if_else(check == 1, median(dat$cti), cti),
-         ln_cti = if_else(check == 1, median(dat$ln_cti), ln_cti),
-         ln_cli = if_else(check == 1, median(dat$ln_cli), ln_cli),
-         ln_cri = if_else(check == 1, median(dat$ln_cri), ln_cri))
-
-#dat_test = dat %>% mutate(test = fli+fri+fti)
-#summary(dat_test[,c("test", "fi")])
-# Test pour voir s'il y a des incohérences...
-```
-
-
 
 
 ```{r}
