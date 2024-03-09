@@ -37,6 +37,9 @@ library(glmnet)
 library(grpreg)
 library(rpart)
 library(randomForest)
+library(gbm)
+library(mboost)
+
 library(lubridate)
 library(sf)
 library(leaflet)
@@ -62,9 +65,6 @@ dat = dat %>%
 
 dat[["ln_distdt"]] = ifelse(is.na(dat[["ln_distdt"]]), 0, as.numeric(dat[["ln_distdt"]]))
 ```
-```{r}
-datdum=dummy_cols(dat, remove_first_dummy=TRUE, remove_selected_columns=TRUE)
-```
 
 
 ```{r}
@@ -73,13 +73,15 @@ dat = dat %>% mutate(check = ifelse(cli == 0 & cri == 0 & cti == 0, 1,0))
 dat_check = dat[dat$check==1,]
 
 dat = dat %>% 
-    mutate(pi = if_else(check == 1, median(dat$pi), pi),
-         cri = if_else(check == 1, median(dat$cri), cri),
-         cli = if_else(check == 1, median(dat$cli), cli),
-         cti = if_else(check == 1, median(dat$cti), cti),
+    mutate(#pi = if_else(check == 1, median(dat$pi), pi),
+         #cri = if_else(check == 1, median(dat$cri), cri),
+         #cli = if_else(check == 1, median(dat$cli), cli),
+         #cti = if_else(check == 1, median(dat$cti), cti),
          ln_cti = if_else(check == 1, median(dat$ln_cti), ln_cti),
          ln_cli = if_else(check == 1, median(dat$ln_cli), ln_cli),
          ln_cri = if_else(check == 1, median(dat$ln_cri), ln_cri))
+
+dat = dat %>% dplyr::select(-c("pi", "fi", "fli", "fri", "fti", "cli", "cri", "cti", "traffic_10000", "check"))
 
 #dat_test = dat %>% mutate(test = fli+fri+fti)
 #summary(dat_test[,c("test", "fi")])
@@ -87,7 +89,28 @@ dat = dat %>%
 ```
 
 ```{r}
-set.seed(489565)
+dat$borough <- gsub("?le-Bizard-Sainte-GeneviÞve", "ile-Bizard-Sainte-Genevieve", dat$borough)
+dat$borough <- gsub("C¶te-des-Neiges-Notre-Dame-de-Graces", "CDN-NDG", dat$borough)
+dat$borough <- gsub("C¶te-Saint-Luc", "Cote-Saint-Luc", dat$borough)
+dat$borough <- gsub("MontrÚal-Est", "Montreal-Est", dat$borough)
+dat$borough <- gsub("MontrÚal-Nord", "Montreal-Nord", dat$borough)
+dat$borough <- gsub("Pointe-aux-Trembles-RiviÞres-des-Prairies", "Pointe-aux-Trembles-Rivieres-des-Prairies", dat$borough)
+dat$borough <- gsub("St-LÚonard", "St-Leonard", dat$borough)
+```
+
+```{r}
+counts <- table(dat$borough)
+
+boroughs_to_remove <- names(counts[counts < 5])
+
+dat <- dat[!dat$borough %in% boroughs_to_remove, ]
+```
+
+
+```{r}
+dat$borough <- as.factor(dat$borough)
+datdum=dummy_cols(dat, remove_first_dummy=TRUE, remove_selected_columns=TRUE)
+set.seed(12345321)
 ntrain=615
 ntest=nrow(dat)-ntrain
 indtrain=sample(1:nrow(dat),ntrain,replace=FALSE)
@@ -146,6 +169,15 @@ names(errlmfit)=c("MAE","MSE")
 errlmfit
 ```
 
+```{r}
+lmfit=glm(acc ~ ., data = datdumtrain, family = poisson())
+predlmfit=predict(lmfit,newdata=datdumtest)
+
+errlmfit=data.frame(mean(abs(predlmfit-datdumtest$acc)),mean((predlmfit-datdumtest$acc)^2))
+names(errlmfit)=c("MAE","MSE")
+errlmfit
+```
+
 
 ```{r}
 lasso=wrapglmnet(xdumtrain,datdumtrain$acc,xdumtest, datdumtest$acc,1)
@@ -174,7 +206,7 @@ errlassrel=data.frame(MAE=mean(abs(pred-ytest)),MSE=mean((pred-ytest)^2))
 errlassrel
 ```
 ```{r}
-group=c(1:50,rep(53,27))
+group=c(1:42,rep(43,20))
 grlassofit=grpreg(xdumtrain, datdumtrain$acc, group, penalty="grLasso")
 plot(grlassofit)
 
@@ -219,6 +251,32 @@ virf = importance(rf)
 varImpPlot(rf)
 ```
 
+```{r}
+gbmgc=gbm(acc~.,data=dattrain,distribution="gaussian",n.trees=100,interaction.depth = 5,shrinkage =0.1)
+predgbm=predict(gbmgc,newdata=dattest,n.trees=100)
+errgbm=data.frame(mean(abs(predgbm-datdumtest$acc)),mean((predgbm-datdumtest$acc)^2))
+names(errgbm)=c("MAE","MSE")
+row.names(errgbm)=c("Tree boosting with gbm")
+errgbm
+```
+
+
+
+```{r}
+glmboostgc=glmboost(acc ~.,data=datdumtrain,family=Gaussian(),control = boost_control(mstop = 2000))
+glmboostgccv=cvrisk(glmboostgc)
+plot(glmboostgccv)
+```
+
+```{r}
+bestm=mstop(glmboostgccv)
+predglmboost=predict(glmboostgc[bestm],new=datdumtest)
+errglmboost=data.frame(mean(abs(predglmboost-datdumtest$acc)),mean((predglmboost-datdumtest$acc)^2))
+names(errglmboost)=c("MAE","MSE")
+row.names(errglmboost)=c("LS Boosting with glmboost")
+errglmboost
+```
+
 
 ```{r}
 allres=rbind(lasso$err[,1:2],ridge$err[,1:2],errlmfit,errlassrel[,1:2])
@@ -227,8 +285,11 @@ allres=rbind(allres,errgrlasso)
 allres=rbind(allres,errgel)
 allres=rbind(allres,errrpart)
 allres=rbind(allres,errrf)
+allres=rbind(allres,errgbm)
+allres=rbind(allres,errglmboost)
 allres[order(allres[,1]),]
 ```
+
 
 
 ------- 
