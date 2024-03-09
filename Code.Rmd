@@ -40,6 +40,8 @@ library(randomForest)
 library(gbm)
 library(mboost)
 library(MASS)
+library(caret)
+library(party)
 
 library(lubridate)
 library(sf)
@@ -111,6 +113,7 @@ dat <- dat[!dat$borough %in% boroughs_to_remove, ]
 ```{r}
 dat$borough <- as.factor(dat$borough)
 datdum=dummy_cols(dat, remove_first_dummy=TRUE, remove_selected_columns=TRUE)
+datdum = datdum %>% dplyr::select(-int_no)
 set.seed(12345321)
 ntrain=615
 ntest=nrow(dat)-ntrain
@@ -123,6 +126,8 @@ xdum$acc=NULL
 xdum=as.matrix(xdum)
 dattrain=dat[indtrain,]
 dattest=dat[-indtrain,]
+dattrain = dattrain %>% dplyr::select(-int_no)
+dattest = dattest %>% dplyr::select(-int_no)
 datdumtrain=datdum[indtrain,]
 datdumtest=datdum[-indtrain,]
 xdumtrain=xdum[indtrain,]
@@ -167,6 +172,7 @@ predlmfit=predict(lmfit,newdata=datdumtest)
 
 errlmfit=data.frame(mean(abs(predlmfit-datdumtest$acc)),mean((predlmfit-datdumtest$acc)^2))
 names(errlmfit)=c("MAE","MSE")
+row.names(errlmfit)=c("lm")
 errlmfit
 ```
 
@@ -176,6 +182,7 @@ predlmfit=predict(lmfit,newdata=datdumtest)
 
 errlmfit_pois=data.frame(mean(abs(predlmfit-datdumtest$acc)),mean((predlmfit-datdumtest$acc)^2))
 names(errlmfit_pois)=c("MAE","MSE")
+row.names(errlmfit_pois)=c("lm")
 errlmfit_pois
 ```
 
@@ -206,6 +213,72 @@ ridge_poisson=wrapglmnet(xdumtrain,datdumtrain$acc,xdumtest, datdumtest$acc,0, f
 ridge_poisson$error
 ```
 
+```{r, warning=FALSE, message = FALSE}
+#train_control <- trainControl(method = "repeatedcv",
+#                              number = 5,
+#                              repeats = 5,
+#                              search = "random",
+#                              verboseIter = TRUE)
+#
+## Train the model
+#elnet <- train(acc ~ .,
+#                           data = datdumtrain,
+#                           method = "glmnet",
+#                           preProcess = c("center", "scale"),
+#                           tuneLength = 25,
+#                           trControl = train_control)
+```
+
+```{r}
+#pred <- predict(elnet, datdumtest)
+#errelnet=data.frame(MAE=mean(abs(pred-datdumtest$acc)),MSE=mean((pred-datdumtest$acc)^2))
+#errelnet
+```
+
+
+```{r,  warning=FALSE, message = FALSE}
+#train_control <- trainControl(method = "repeatedcv",
+#                              number = 5,
+#                              repeats = 5,
+#                              search = "random",
+#                              verboseIter = TRUE)
+#
+## Train the model
+#elnet_poisson <- train(acc ~ .,
+#                           data = datdumtrain,
+#                           method = "glmnet",
+#                           preProcess = c("center", "scale"),
+#                           tuneLength = 25,
+#                           trControl = train_control, 
+#                           family = "poisson")
+```
+
+```{r}
+#pred <- predict(elnet, datdumtest)
+#errelnet_poisson=data.frame(MAE=mean(abs(pred-datdumtest$acc)),MSE=mean((pred-datdumtest$acc)^2))
+#errelnet_poisson
+```
+
+```{r}
+namlas=rownames(lasso$coef)[-1]
+laslm=lm(acc~.,data=datdumtrain[,c(namlas,"acc")])
+predlaslm=predict(laslm,newdata=datdumtest)
+errlaslm=data.frame(mean(abs(predlaslm-datdumtest$acc)), mean((predlaslm-datdumtest$acc)^2))
+names(errlaslm)=c("MAE","MSE")
+row.names(errlaslm)=c("lasso-lm")
+errlaslm
+```
+
+```{r}
+namlas=rownames(lasso_poisson$coef)[-1]
+laslm=glm(acc ~ ., data = datdumtrain[,c(namlas,"acc")], family = poisson(link = "log"))
+predlaslm=predict(laslm,newdata=datdumtest)
+errlaslm_poisson=data.frame(mean(abs(predlaslm-datdumtest$acc)), mean((predlaslm-datdumtest$acc)^2))
+names(errlaslm_poisson)=c("MAE","MSE")
+row.names(errlaslm_poisson)=c("lasso-lm")
+errlaslm_poisson
+```
+
 
 ```{r}
 cv.relax=cv.glmnet(x=xdumtrain,y=datdumtrain$acc, alpha=1,relax=TRUE)
@@ -216,6 +289,7 @@ plot(cv.relax)
 pred=predict(cv.relax,new=xdumtest,s="lambda.min",gamma="gamma.min")
 ytest=datdumtest$acc
 errlassrel=data.frame(MAE=mean(abs(pred-ytest)),MSE=mean((pred-ytest)^2))
+row.names(errlassrel)=c("lasso relaxed")
 errlassrel
 ```
 
@@ -226,12 +300,13 @@ plot(cv.relax)
 pred=predict(cv.relax,new=xdumtest,s="lambda.min",gamma="gamma.min")
 ytest=datdumtest$acc
 errlassrel_poisson=data.frame(MAE=mean(abs(pred-ytest)),MSE=mean((pred-ytest)^2))
+row.names(errlassrel_poisson)=c("lasso relaxed")
 errlassrel_poisson
 ```
 
 
 ```{r}
-group=c(1:42,rep(43,20))
+group=c(1:41,rep(43,20))
 grlassofit=grpreg(xdumtrain, datdumtrain$acc, group, penalty="grLasso")
 plot(grlassofit)
 
@@ -244,7 +319,7 @@ row.names(errgrlasso)=c("group lasso")
 ```
 
 ```{r}
-group=c(1:42,rep(43,20))
+group=c(1:41,rep(43,20))
 grlassofit=grpreg(xdumtrain, datdumtrain$acc, group, penalty="grLasso", family = "poisson")
 plot(grlassofit)
 
@@ -274,7 +349,7 @@ predgel=predict(gelcv,X=xdumtest)
 errgel_poisson=data.frame(mean(abs(predgel-datdumtest$acc)),mean((predgel-datdumtest$acc)^2))
 names(errgel_poisson)=c("MAE","MSE")
 row.names(errgel_poisson)=c("exponential lasso")
-errgel
+errgel_poisson
 ```
 
 
@@ -312,7 +387,13 @@ varImpPlot(rf)
 ```
 
 ```{r}
+cttree=ctree(acc~., data=dattrain)
+predct=predict(cttree,newdata=dattest)
 
+errcond=data.frame(mean(abs(predct-datdumtest$acc)),mean((predct-datdumtest$acc)^2))
+names(errcond)=c("MAE","MSE")
+row.names(errcond)=c("cond forest")
+errcond
 ```
 
 
@@ -375,6 +456,9 @@ allres=rbind(allres,errrpart)
 allres=rbind(allres,errrf)
 allres=rbind(allres,errgbm)
 allres=rbind(allres,errglmboost)
+allres=rbind(allres, errlaslm)
+allres=rbind(allres, errelnet)
+allres=rbind(allres, errcond)
 allres[order(allres[,1]),]
 ```
 
@@ -384,61 +468,28 @@ row.names(allres)=c("lasso","ridge","OLS","relaxed lasso")
 allres=rbind(allres,errgrlasso_poisson)
 allres=rbind(allres,errgel_poisson)
 allres=rbind(allres,errrpart_poisson)
-#allres=rbind(allres,errrf_poisson)
 allres=rbind(allres,errgbm_poisson)
 allres=rbind(allres,errglmboost_poisson)
+allres=rbind(allres, errlaslm_poisson)
+allres=rbind(allres, errelnet_poisson)
 allres[order(allres[,1]),]
 ```
 
+----
+
+```{r}
+rf_full=randomForest(acc~.-int_no,data=dat,ntree=500)
+predrf_full=predict(rf_full,newdata=dat)
+
+virf = importance(rf)
+varImpPlot(rf)
+```
+
+```{r}
+predictions_df <- data.frame(int_no = dat$int_no, pred_rf_full = predrf_full)
+```
 
 ------- 
-
-```{r}
-# variable qui joue sur les accidents ou le risque
-facteur_risque <- c(
-  "acc",
-  "all_pedest",
-  "ln_cli",
-  "ln_cri",
-  "ln_cti",
-  #"pi",
-  #"fli",
-  #"fri",
-  #"fti",
-  "ln_pi",
-  "ln_fli",
-  "ln_fri",
-  "ln_fti",
-  "tot_crossw",
-  "number_of_",
-  "avg_crossw",
-  "tot_road_w",
-  "median",
-  "green_stra",
-  "any_ped_pr",
-  "ped_countd",
-  "lt_protect",
-  "lt_restric",
-  "lt_prot_re",
-  "parking",
-  "total_lane",
-  "of_exclusi",
-  "any_exclus",
-  "commercial",
-  "curb_exten",
-  "all_red_an",
-  "new_half_r",
-  "ln_distdt"
-  #"distdt"
-)
-```
-
-
-```{r}
-mod = lm(acc ~ ., data = dat[, facteur_risque, drop = FALSE])
-summary(mod)
-```
-
 boxplot
 ```{r}
 
@@ -512,85 +563,6 @@ for (var_name in names(dat)) {
 }
 
 ```
-Séparation en validation et test 
-```{r}
-dat2 <- dat %>% 
-  select(-rue_1, -rue_2, -date_, -x, -y, -int_no)
-
-# creation de data set train et test (pas besoin de de train pcq utilise CV)
-set.seed(1234)
-training_indices <- createDataPartition(dat2$acc, p = 0.7, list = FALSE)
-dat_train <- dat2[training_indices, ]
-dat_test <- dat2[-training_indices, ]
-
-```
-
-arbre simple
-```{r}
-tree <- rpart(acc ~ ., data = dat_train,
-              control = rpart.control(xval = 5, minisplit=20,minibucket=5, cp=0))
-
-rpart.plot(tree)
-tree$cptable
-
-elague <- prune(tree, cp=tree$cp[which.min(tree$cp[, "xerror"]), "CP"])
-
-rpart.plot(elague)
-
-predTr <-predict(elague, newdata = dat_test)
-
-mean((predTr-dat_test$acc)^2)
-
-
-```
-
-
-random forest
-```{r}
-
-set.seed(123)
-rf <- randomForest(acc ~. ,data = dat_train, ntree=500)
-
-predRF <- predict(rf,newdata = dat_test)
-
-mean((predRF-dat_test$acc)^2)
-
-varImpPlot(rf)
-
-importance <- varImp(rf) %>%
-  arrange(desc(Overall))
-importance
-```
-
-Creation de l'indice
-L'indice est mauvais, mais je voulais juste pas me casser la tete
-```{r}
-dat3 <- dat %>% 
-  select(int_no,rue_1, rue_2,acc,cti,cli,cri,borough)
-
-dat3 <- dummy_cols(dat3, select_columns = "borough", remove_selected_columns = TRUE)
-
-#dat3[, 4:34] <- lapply(dat3[, 4:34], function(x) scale(x, center = T, scale = TRUE))
-
-#dat3 <- dat3 %>% mutate(across(11:38, ~ . * 980))
-
-
-
-# ajout des poids
-manual_sum <- apply(dat3[, 7:34], 1, sum)
-
-dat3 <- dat3 %>% mutate(indice =1587*cti + 797*cli + 633*cri)
-
-
-ordre <- dat3 %>% select(acc,indice,rue_1,rue_2) %>% 
-  arrange(desc(indice))
-
-cor(dat3$acc,dat3$indice)
-
-```
-
-
-
 
 
 
