@@ -39,6 +39,7 @@ library(rpart)
 library(randomForest)
 library(gbm)
 library(mboost)
+library(MASS)
 
 library(lubridate)
 library(sf)
@@ -129,12 +130,12 @@ xdumtest=xdum[-indtrain,]
 ```
 
 ```{r}
-wrapglmnet=function(xtrain,ytrain,xtest,ytest=NULL,alpha)
+wrapglmnet=function(xtrain,ytrain,xtest,ytest=NULL,alpha,family)
 {
 library(glmnet)
 par(mfrow=c(2,2))
-plot(glmnet(x=xtrain,y=ytrain,alpha=alpha),xvar = "lambda", label = TRUE)
-cv=cv.glmnet(x=xtrain,y=ytrain, alpha=alpha)
+plot(glmnet(x=xtrain,y=ytrain,alpha=alpha),xvar = "lambda", label = TRUE, family = family)
+cv=cv.glmnet(x=xtrain,y=ytrain, alpha=alpha, family = family)
 plot(cv)
 pred=predict(cv,new=xtest,s="lambda.min")
 pred1se=predict(cv,new=xtest,s="lambda.1se")
@@ -170,29 +171,41 @@ errlmfit
 ```
 
 ```{r}
-lmfit=glm(acc ~ ., data = datdumtrain, family = poisson())
+lmfit=glm(acc ~ ., data = datdumtrain, family = poisson(link = "log"))
 predlmfit=predict(lmfit,newdata=datdumtest)
 
-errlmfit=data.frame(mean(abs(predlmfit-datdumtest$acc)),mean((predlmfit-datdumtest$acc)^2))
-names(errlmfit)=c("MAE","MSE")
-errlmfit
+errlmfit_pois=data.frame(mean(abs(predlmfit-datdumtest$acc)),mean((predlmfit-datdumtest$acc)^2))
+names(errlmfit_pois)=c("MAE","MSE")
+errlmfit_pois
 ```
 
 
 ```{r}
-lasso=wrapglmnet(xdumtrain,datdumtrain$acc,xdumtest, datdumtest$acc,1)
+lasso=wrapglmnet(xdumtrain,datdumtrain$acc,xdumtest, datdumtest$acc,1, family = "gaussian")
 dim(lasso$coef)
 
 lasso$error
 ```
 
 ```{r}
-ridge=wrapglmnet(xdumtrain,datdumtrain$acc,xdumtest, datdumtest$acc,0)
+lasso_poisson <- wrapglmnet(xdumtrain, datdumtrain$acc, xdumtest, datdumtest$acc, alpha = 1, family = "poisson")
+lasso_poisson$error
+```
+
+
+```{r}
+ridge=wrapglmnet(xdumtrain,datdumtrain$acc,xdumtest, datdumtest$acc,0, family = "gaussian")
 
 dim(ridge$coef)
 
 ridge$error
 ```
+
+```{r}
+ridge_poisson=wrapglmnet(xdumtrain,datdumtrain$acc,xdumtest, datdumtest$acc,0, family = "poisson")
+ridge_poisson$error
+```
+
 
 ```{r}
 cv.relax=cv.glmnet(x=xdumtrain,y=datdumtrain$acc, alpha=1,relax=TRUE)
@@ -205,6 +218,18 @@ ytest=datdumtest$acc
 errlassrel=data.frame(MAE=mean(abs(pred-ytest)),MSE=mean((pred-ytest)^2))
 errlassrel
 ```
+
+```{r}
+cv.relax=cv.glmnet(x=xdumtrain,y=datdumtrain$acc, alpha=1,relax=TRUE, family = "poisson")
+plot(cv.relax)
+
+pred=predict(cv.relax,new=xdumtest,s="lambda.min",gamma="gamma.min")
+ytest=datdumtest$acc
+errlassrel_poisson=data.frame(MAE=mean(abs(pred-ytest)),MSE=mean((pred-ytest)^2))
+errlassrel_poisson
+```
+
+
 ```{r}
 group=c(1:42,rep(43,20))
 grlassofit=grpreg(xdumtrain, datdumtrain$acc, group, penalty="grLasso")
@@ -219,6 +244,20 @@ row.names(errgrlasso)=c("group lasso")
 ```
 
 ```{r}
+group=c(1:42,rep(43,20))
+grlassofit=grpreg(xdumtrain, datdumtrain$acc, group, penalty="grLasso", family = "poisson")
+plot(grlassofit)
+
+grlassofitcv=cv.grpreg(xdumtrain, datdumtrain$acc, group,seed=1234,penalty="grLasso", family = "poisson")
+coefgrlasso=predict(grlassofitcv,type="coefficients")
+predgrlasso=predict(grlassofitcv,X=xdumtest)
+errgrlasso_poisson=data.frame(mean(abs(predgrlasso-datdumtest$acc)),mean((predgrlasso-datdumtest$acc)^2))
+names(errgrlasso_poisson)=c("MAE","MSE")
+row.names(errgrlasso_poisson)=c("group lasso")
+```
+
+
+```{r}
 gelcv=cv.grpreg(xdumtrain, datdumtrain$acc, group, seed=1234,penalty="gel")
 coefgel=predict(gelcv,type="coefficients")
 predgel=predict(gelcv,X=xdumtest)
@@ -226,8 +265,18 @@ errgel=data.frame(mean(abs(predgel-datdumtest$acc)),mean((predgel-datdumtest$acc
 names(errgel)=c("MAE","MSE")
 row.names(errgel)=c("exponential lasso")
 errgel
-
 ```
+
+```{r}
+gelcv=cv.grpreg(xdumtrain, datdumtrain$acc, group, seed=1234,penalty="gel", family = "poisson")
+coefgel=predict(gelcv,type="coefficients")
+predgel=predict(gelcv,X=xdumtest)
+errgel_poisson=data.frame(mean(abs(predgel-datdumtest$acc)),mean((predgel-datdumtest$acc)^2))
+names(errgel_poisson)=c("MAE","MSE")
+row.names(errgel_poisson)=c("exponential lasso")
+errgel
+```
+
 
 ```{r}
 rptree=rpart(acc~.,data=dattrain,method="anova",control = rpart.control(xval = 10, minsplit=10, minbucket = 3, cp = 0))
@@ -238,6 +287,17 @@ names(errrpart)=c("MAE","MSE")
 row.names(errrpart)=c("single tree (rpart)")
 errrpart
 ```
+
+```{r}
+rptree=rpart(acc~.,data=dattrain,control = rpart.control(xval = 10, minsplit=10, minbucket = 3, cp = 0), method = "poisson")
+rptreepruned=prune(rptree,cp=rptree$cp[which.min(rptree$cp[,"xerror"]),"CP"])
+predrpart=predict(rptreepruned,newdata=dattest)
+errrpart_poisson=data.frame(mean(abs(predrpart-datdumtest$acc)),mean((predrpart-datdumtest$acc)^2))
+names(errrpart_poisson)=c("MAE","MSE")
+row.names(errrpart_poisson)=c("single tree (rpart)")
+errrpart_poisson
+```
+
 
 ```{r}
 rf=randomForest(acc~.,data=dattrain,ntree=500)
@@ -252,6 +312,11 @@ varImpPlot(rf)
 ```
 
 ```{r}
+
+```
+
+
+```{r}
 gbmgc=gbm(acc~.,data=dattrain,distribution="gaussian",n.trees=100,interaction.depth = 5,shrinkage =0.1)
 predgbm=predict(gbmgc,newdata=dattest,n.trees=100)
 errgbm=data.frame(mean(abs(predgbm-datdumtest$acc)),mean((predgbm-datdumtest$acc)^2))
@@ -260,6 +325,14 @@ row.names(errgbm)=c("Tree boosting with gbm")
 errgbm
 ```
 
+```{r}
+gbmgc=gbm(acc~.,data=dattrain,distribution="poisson",n.trees=100,interaction.depth = 5,shrinkage =0.1)
+predgbm=predict(gbmgc,newdata=dattest,n.trees=100)
+errgbm_poisson=data.frame(mean(abs(predgbm-datdumtest$acc)),mean((predgbm-datdumtest$acc)^2))
+names(errgbm_poisson)=c("MAE","MSE")
+row.names(errgbm_poisson)=c("Tree boosting with gbm")
+errgbm_poisson
+```
 
 
 ```{r}
@@ -277,6 +350,21 @@ row.names(errglmboost)=c("LS Boosting with glmboost")
 errglmboost
 ```
 
+```{r}
+glmboostgc=glmboost(acc ~.,data=datdumtrain,family=Poisson(),control = boost_control(mstop = 2000))
+glmboostgccv=cvrisk(glmboostgc)
+plot(glmboostgccv)
+```
+
+```{r}
+bestm=mstop(glmboostgccv)
+predglmboost=predict(glmboostgc[bestm],new=datdumtest)
+errglmboost_poisson=data.frame(mean(abs(predglmboost-datdumtest$acc)),mean((predglmboost-datdumtest$acc)^2))
+names(errglmboost_poisson)=c("MAE","MSE")
+row.names(errglmboost_poisson)=c("LS Boosting with glmboost")
+errglmboost_poisson
+```
+
 
 ```{r}
 allres=rbind(lasso$err[,1:2],ridge$err[,1:2],errlmfit,errlassrel[,1:2])
@@ -290,6 +378,17 @@ allres=rbind(allres,errglmboost)
 allres[order(allres[,1]),]
 ```
 
+```{r}
+allres=rbind(lasso_poisson$err[,1:2],ridge_poisson$err[,1:2],errlmfit_pois,errlassrel_poisson[,1:2])
+row.names(allres)=c("lasso","ridge","OLS","relaxed lasso")
+allres=rbind(allres,errgrlasso_poisson)
+allres=rbind(allres,errgel_poisson)
+allres=rbind(allres,errrpart_poisson)
+#allres=rbind(allres,errrf_poisson)
+allres=rbind(allres,errgbm_poisson)
+allres=rbind(allres,errglmboost_poisson)
+allres[order(allres[,1]),]
+```
 
 
 ------- 
