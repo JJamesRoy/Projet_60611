@@ -84,7 +84,7 @@ dat = dat %>%
          ln_cli = if_else(check == 1, median(dat$ln_cli), ln_cli),
          ln_cri = if_else(check == 1, median(dat$ln_cri), ln_cri))
 
-dat = dat %>% dplyr::select(-c("pi", "fi", "fli", "fri", "fti", "cli", "cri", "cti", "traffic_10000", "check"))
+dat = dat %>% dplyr::select(-c("pi", "fi", "fli", "fri", "fti", "cli", "cri", "cti", "check"))
 
 #dat_test = dat %>% mutate(test = fli+fri+fti)
 #summary(dat_test[,c("test", "fi")])
@@ -214,49 +214,53 @@ ridge_poisson$error
 ```
 
 ```{r, warning=FALSE, message = FALSE}
-#train_control <- trainControl(method = "repeatedcv",
-#                              number = 5,
-#                              repeats = 5,
-#                              search = "random",
-#                              verboseIter = TRUE)
-#
-## Train the model
-#elnet <- train(acc ~ .,
-#                           data = datdumtrain,
-#                           method = "glmnet",
-#                           preProcess = c("center", "scale"),
-#                           tuneLength = 25,
-#                           trControl = train_control)
+train_control <- trainControl(method = "repeatedcv",
+                              number = 5,
+                              repeats = 5,
+                              search = "random",
+                              verboseIter = TRUE)
+
+# Train the model
+elnet <- train(acc ~ .,
+                           data = datdumtrain,
+                           method = "glmnet",
+                           preProcess = c("center", "scale"),
+                           tuneLength = 25,
+                           trControl = train_control)
 ```
 
 ```{r}
-#pred <- predict(elnet, datdumtest)
-#errelnet=data.frame(MAE=mean(abs(pred-datdumtest$acc)),MSE=mean((pred-datdumtest$acc)^2))
-#errelnet
+pred <- predict(elnet, datdumtest)
+errelnet=data.frame(MAE=mean(abs(pred-datdumtest$acc)),MSE=mean((pred-datdumtest$acc)^2))
+names(errelnet)=c("MAE","MSE")
+row.names(errelnet)=c("elastic net")
+errelnet
 ```
 
 
 ```{r,  warning=FALSE, message = FALSE}
-#train_control <- trainControl(method = "repeatedcv",
-#                              number = 5,
-#                              repeats = 5,
-#                              search = "random",
-#                              verboseIter = TRUE)
-#
-## Train the model
-#elnet_poisson <- train(acc ~ .,
-#                           data = datdumtrain,
-#                           method = "glmnet",
-#                           preProcess = c("center", "scale"),
-#                           tuneLength = 25,
-#                           trControl = train_control, 
-#                           family = "poisson")
+train_control <- trainControl(method = "repeatedcv",
+                              number = 5,
+                              repeats = 5,
+                              search = "random",
+                              verboseIter = TRUE)
+
+# Train the model
+elnet_poisson <- train(acc ~ .,
+                           data = datdumtrain,
+                           method = "glmnet",
+                           preProcess = c("center", "scale"),
+                           tuneLength = 25,
+                           trControl = train_control, 
+                           family = "poisson")
 ```
 
 ```{r}
-#pred <- predict(elnet, datdumtest)
-#errelnet_poisson=data.frame(MAE=mean(abs(pred-datdumtest$acc)),MSE=mean((pred-datdumtest$acc)^2))
-#errelnet_poisson
+pred <- predict(elnet, datdumtest)
+errelnet_poisson=data.frame(MAE=mean(abs(pred-datdumtest$acc)),MSE=mean((pred-datdumtest$acc)^2))
+names(errelnet_poisson)=c("MAE","MSE")
+row.names(errelnet_poisson)=c("elastic net")
+errelnet_poisson
 ```
 
 ```{r}
