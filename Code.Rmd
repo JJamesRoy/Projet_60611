@@ -310,7 +310,7 @@ errlassrel_poisson
 
 
 ```{r}
-group=c(1:41,rep(43,20))
+group=c(1:42,rep(43,20))
 grlassofit=grpreg(xdumtrain, datdumtrain$acc, group, penalty="grLasso")
 plot(grlassofit)
 
@@ -323,7 +323,7 @@ row.names(errgrlasso)=c("group lasso")
 ```
 
 ```{r}
-group=c(1:41,rep(43,20))
+group=c(1:42,rep(43,20))
 grlassofit=grpreg(xdumtrain, datdumtrain$acc, group, penalty="grLasso", family = "poisson")
 plot(grlassofit)
 
