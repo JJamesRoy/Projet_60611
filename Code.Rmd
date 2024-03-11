@@ -555,17 +555,26 @@ top_15_data <- heatmap_dat %>%
   arrange(desc(pred_rf_full)) %>%
   slice(1:15)
 
- ggplot(top_15_data, aes(x=reorder(combined_rue, pred_rf_full), y=pred_rf_full)) +
+prisque <- ggplot(top_15_data, aes(x=reorder(combined_rue, pred_rf_full), y=pred_rf_full)) +
   geom_bar(stat="identity", col="darkgrey", aes(fill=pred_rf_full)) +
   coord_flip() +
-  theme_minimal() + 
-  labs(title="",
+  theme_classic(base_size = 12) + 
+  labs(title="Risque d'accident entre véhicule \net civil par intersection",
        x="",  
        y="Risque d'accidents") +
-  theme(legend.position = "none",  
+  theme(legend.position = "none",
+        axis.text.y = element_text(color = "black", size = rel(1.1)),
         axis.text.x = element_blank(),   
-        axis.ticks.x = element_blank())
+        axis.ticks.x = element_blank(),
+        panel.background = element_rect(fill='transparent'),
+        plot.background = element_rect(fill='transparent', color=NA), 
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(), 
+        legend.background = element_rect(fill='transparent'), 
+        legend.box.background = element_rect(fill='transparent'),
+        text = element_text(size = 12))
  
+ ggsave("prisque_transparent.png", prisque, bg = "transparent", width = 8, height = 7, dpi = 300)
  
 ```
 
@@ -655,9 +664,9 @@ montreal_n_sum <- montreal_n %>%
   left_join(dat_sum, by = "NOM") %>%
   mutate(somme = ifelse(is.na(somme), 0, somme))
 
-ggplot(data = montreal_n_sum) +
+heatmap <- ggplot(data = montreal_n_sum) +
   geom_sf(aes(fill = somme), color = "black") +
-  scale_fill_gradient(low = "lightblue", high = "red", na.value = "white") +
+  scale_fill_gradient(low = "lightblue", high = "firebrick2", na.value = "white") +
   labs(title = "carte thermique du risque d'accident par arrondissement",
        subtitle = "Montréal", x = "", y = "") +
   theme_void() +
@@ -666,7 +675,15 @@ ggplot(data = montreal_n_sum) +
 ```
 
 
+# pour le ppt
+```{r}
 
+heatmap1 <- heatmap+labs(title = "",
+       subtitle = "", x = "", y = "")
+ggsave("heatmap_transparent.png", heatmap, bg = "transparent", width = 10, height = 8)
+heatmap1
+
+```
 
 
 
