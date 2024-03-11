@@ -540,88 +540,17 @@ allres[order(allres[,1]),]
 rf_full=randomForest(acc~.-int_no,data=dat,ntree=500)
 predrf_full=predict(rf_full,newdata=dat)
 
-virf = importance(rf)
-varImpPlot(rf)
+virf = importance(rf_full)
+varImpPlot(rf_full)
 ```
 
 ```{r}
 predictions_df <- data.frame(int_no = dat$int_no, pred_rf_full = predrf_full)
+predictions_df$classement <- rank(-predictions_df$pred_rf_full)
+dat_final = predictions_df %>% dplyr::select(-pred_rf_full)
+write.csv(dat_final,"classement.csv")
 ```
 
-------- 
-boxplot
-```{r}
-
-
-
-is_numeric_or_factor <- function(x) { is.numeric(x) || is.factor(x) }
-
-numeric_or_factor_vars <- sapply(dat, is_numeric_or_factor)
-
-
-#numeric_or_factor_vars <- numeric_or_factor_vars[-(1:3)]
-
-data_numeric_or_factor <- dat[, numeric_or_factor_vars]
-
-
-for(var in names(data_numeric_or_factor)) {
-  if(is.factor(dat[[var]])) {
-    # count plot au lieu de box_plot pour les facteur
-    p <- ggplot(dat, aes_string(x = var)) +
-      geom_bar() +
-      labs(title = paste("Compte de", var), x = var)
-  } else {
-    # boxplot pour les numérique
-    p <- ggplot(dat, aes_string(y = var)) +
-      geom_boxplot() +
-      labs(title = paste("Boxplot de", var), y = var)
-  }
-  print(p)
-}
-
-
-```
-
-regarder les combinaisons linéaire possible
-```{r}
-dat_num = dat[,7:20]
-
-for (col in names(dat_num)) {
-  dat_num[[col]] <- as.numeric(dat_num[[col]])
-}
-
-#columns_to_remove <- grep("^ln", names(dat_num))
-
-# Supprimer les colonnes commençant par "ln"
-#dat_num <- dat_num[, -columns_to_remove]
-
-dat_num = as.data.frame(scale(dat_num))
-
-
-dat_fa = factanal(dat_num, factors = 2, na.action = )
-
-
-```
-
-visualisation de tous les regression linéaire simple
-```{r}
-for (var_name in names(dat)) {
-  if (is.numeric(dat[[var_name]])) {
-    
-    formula <- as.formula(paste("acc ~", var_name))
-    mod1 <- lm(formula, data = dat)
-    
-    plot <- ggplot(dat, aes_string(x=var_name, y="acc")) +
-      geom_smooth(method = "lm") +
-      geom_abline(intercept = mod1$coefficients[1], slope = mod1$coefficients[2])+
-      geom_point() +
-      labs(x=var_name) 
-      
-    print(plot)
-  }
-}
-
-```
 
 # Map
 ```{r}
