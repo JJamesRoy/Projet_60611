@@ -51,6 +51,11 @@ library(rpart.plot)
 library(randomForest)
 library(caret)
 library(fastDummies)
+library(rmapshaper)
+library(sp)
+library(broom)
+library(maps)
+library(mapcan)
 ```
 
 
@@ -618,6 +623,77 @@ for (var_name in names(dat)) {
 
 ```
 
+# Map
+```{r}
+
+montreal <- st_read(dsn = "montreal",
+                    layer = "LIMADMIN")
+
+#summary(montreal@data$NOM)
+
+df <- montreal
+
+plot(montreal)
+
+
+montreal_sf <- st_as_sf(montreal)
+montreal_n <- ms_simplify(montreal_sf, keep = 0.2, keep_shapes = TRUE)
+
+ggplot(montreal_n) +
+  geom_sf() +
+  theme_minimal()
+
+
+montreal_n$NOM <- gsub("Outremont", "Outremont", montreal_n$NOM)
+montreal_n$NOM <- gsub("LaSalle", "Lasalle", montreal_n$NOM)
+montreal_n$NOM <- gsub("Mont-Royal", "Mont-Royal", montreal_n$NOM)
+montreal_n$NOM <- gsub("Ville-Marie", "Ville-Marie", montreal_n$NOM)
+montreal_n$NOM <- gsub("Le Plateau-Mont-Royal", "Plateau-Mont-Royal", montreal_n$NOM)
+montreal_n$NOM <- gsub("Le Sud-Ouest", "Sud-Ouest", montreal_n$NOM)
+montreal_n$NOM <- gsub("Rivière-des-Prairies-Pointe-aux-Trembles", "Pointe-aux-Trembles-Rivieres-des-Prairies", montreal_n$NOM)
+montreal_n$NOM <- gsub("Lachine", "Lachine", montreal_n$NOM)
+montreal_n$NOM <- gsub("Ahuntsic-Cartierville", "Ahuntsic-Cartierville", montreal_n$NOM)
+montreal_n$NOM <- gsub("Côte-Saint-Luc", "Cote-Saint-Luc", montreal_n$NOM)
+montreal_n$NOM <- gsub("Saint-Léonard", "St-Leonard", montreal_n$NOM)
+montreal_n$NOM <- gsub("Mercier-Hochelaga-Maisonneuve", "Mercier-Hochelaga-Maisonneuve", montreal_n$NOM)
+montreal_n$NOM <- gsub("Côte-des-Neiges-Notre-Dame-de-Grâce", "CDN-NDG", montreal_n$NOM)
+montreal_n$NOM <- gsub("Rosemont-La Petite-Patrie", "Rosemont-La-Petite-Patrie", montreal_n$NOM)
+montreal_n$NOM <- gsub("Saint-Laurent", "Saint-Laurent", montreal_n$NOM)
+montreal_n$NOM <- gsub("Villeray-Saint-Michel-Parc-Extension", "Villeray-Saint-Michel-Parc-Extension", montreal_n$NOM)
+montreal_n$NOM <- gsub("Westmount", "Westmount", montreal_n$NOM)
+montreal_n$NOM <- gsub("Montréal-Est", "Montreal-Est", montreal_n$NOM)
+montreal_n$NOM <- gsub("Anjou", "Anjou", montreal_n$NOM)
+montreal_n$NOM <- gsub("Pierrefonds-Roxboro", "Pierrefonds-Roxboro", montreal_n$NOM)
+montreal_n$NOM <- gsub("Verdun", "Verdun", montreal_n$NOM)
+montreal_n$NOM <- gsub("Montréal-Nord", "Montreal-Nord", montreal_n$NOM)
+
+# Verification des maching values pour la carte 
+unique_values_in_borough <- unique(dat$borough)
+unique_values_in_borough
+non_matching_values <- setdiff(unique_values_in_borough,montreal_n$NOM)
+print(non_matching_values)
+
+# faire la meme chose avec les prediction
+dat_sum <- dat %>%
+  group_by(borough) %>%
+  summarise(somme = sum(acc, na.rm = TRUE)) %>%
+  ungroup()
+
+
+montreal_n_sum <- montreal_n %>%
+  left_join(dat_sum, by = c("NOM" = "borough")) %>%
+  mutate(somme = ifelse(is.na(somme), 0, somme))
+
+ggplot(data = montreal_n_sum) +
+  geom_sf(aes(fill = somme), color = "black") + # Use 'somme' for the fill, no border color
+  scale_fill_gradient(low = "lightblue", high = "red", 
+                      na.value = "white", name = "Accident Sum") +
+  labs(title = "Heatmap of Accident Sums by Borough",
+       subtitle = "Montréal") +
+  theme_minimal() +
+  theme(legend.position = "right")
+
+```
 
 
 
