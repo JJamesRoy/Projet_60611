@@ -546,9 +546,27 @@ varImpPlot(rf_full)
 
 ```{r}
 predictions_df <- data.frame(int_no = dat$int_no, pred_rf_full = predrf_full)
+heatmap_dat <- left_join(dat_descrp,predictions_df)
 predictions_df$classement <- rank(-predictions_df$pred_rf_full)
 dat_final = predictions_df %>% dplyr::select(-pred_rf_full)
 write.csv(dat_final,"classement.csv")
+
+top_15_data <- heatmap_dat %>%
+  arrange(desc(pred_rf_full)) %>%
+  slice(1:15)
+
+ ggplot(top_15_data, aes(x=reorder(combined_rue, pred_rf_full), y=pred_rf_full)) +
+  geom_bar(stat="identity", col="darkgrey", aes(fill=pred_rf_full)) +
+  coord_flip() +
+  theme_minimal() + 
+  labs(title="",
+       x="",  
+       y="Risque d'accidents") +
+  theme(legend.position = "none",  
+        axis.text.x = element_blank(),   
+        axis.ticks.x = element_blank())
+ 
+ 
 ```
 
 
@@ -562,16 +580,8 @@ montreal <- st_read(dsn = "montreal",
 
 df <- montreal
 
-plot(montreal)
-
-
 montreal_sf <- st_as_sf(montreal)
 montreal_n <- ms_simplify(montreal_sf, keep = 0.2, keep_shapes = TRUE)
-
-ggplot(montreal_n) +
-  geom_sf() +
-  theme_minimal()
-
 
 montreal_n$NOM <- gsub("Outremont", "Outremont", montreal_n$NOM)
 montreal_n$NOM <- gsub("LaSalle", "Lasalle", montreal_n$NOM)
@@ -608,14 +618,18 @@ dat_sum <- dat %>%
   summarise(somme = sum(acc, na.rm = TRUE)) %>%
   ungroup()
 
+dat_sum <- rename(dat_sum, NOM = borough)
+
+montreal_n_sum <- montreal_n %>%
+  left_join(dat_sum, by = "NOM") %>%
+  mutate(somme = ifelse(is.na(somme), 0, somme))
 
 
-# Plotting the heatmap without axis lines/text and with top 3 borough labels
 ggplot(data = montreal_n_sum) +
-  geom_sf(aes(fill = somme), color = "black") + # Use 'somme' for the fill, no border color
+  geom_sf(aes(fill = somme), color = "black") +
   scale_fill_gradient(low = "lightblue", high = "red",
-                      na.value = "white", name = "Accident Sum") +
-  labs(title = "Heatmap of Accident Sums by Borough",
+                      na.value = "white", name = "Accidents") +
+  labs(title = "Carte thermique du nombre d'accident par arrondissement",
        subtitle = "Montreal",
        x = "", y = "") +
   theme_minimal() +
@@ -625,6 +639,29 @@ ggplot(data = montreal_n_sum) +
         axis.ticks = element_blank(),
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank())
+
+
+
+
+
+dat_sum <- heatmap_dat  %>%
+  group_by(borough) %>%
+  summarise(somme = sum(pred_rf_full, na.rm = TRUE)) %>%
+  ungroup()
+
+dat_sum <- rename(dat_sum, NOM = borough)
+
+montreal_n_sum <- montreal_n %>%
+  left_join(dat_sum, by = "NOM") %>%
+  mutate(somme = ifelse(is.na(somme), 0, somme))
+
+ggplot(data = montreal_n_sum) +
+  geom_sf(aes(fill = somme), color = "black") +
+  scale_fill_gradient(low = "lightblue", high = "red", na.value = "white") +
+  labs(title = "carte thermique du risque d'accident par arrondissement",
+       subtitle = "Montréal", x = "", y = "") +
+  theme_void() +
+  theme(legend.position = "none")
 
 ```
 
