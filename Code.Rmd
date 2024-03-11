@@ -37,7 +37,7 @@ library(glmnet)
 library(grpreg)
 library(rpart)
 library(randomForest)
-library(gbm)
+library(gbm3)
 library(mboost)
 library(MASS)
 library(caret)
@@ -118,6 +118,56 @@ set.seed(12345321)
 ntrain=615
 ntest=nrow(dat)-ntrain
 indtrain=sample(1:nrow(dat),ntrain,replace=FALSE)
+```
+
+
+```{r}
+dat2 = read.csv("data_final.csv", sep = ";")
+
+dat2 <- dat2 %>%
+  mutate(combined_rue = paste(rue_1, rue_2, sep = " / "))
+
+dat2 <- dat2 %>%
+   dplyr::select(int_no, combined_rue,fi,pi)
+
+dat_descrp <- dat
+
+dat_descrp <- left_join(dat,dat2)
+
+dat_descrp$combined_rue <-  as.factor(dat_descrp$combined_rue)
+
+top_10_percent_threshold <- quantile(dat_descrp$acc, 0.99)
+
+top_10_percent_data <- dat_descrp %>%
+  filter(acc > top_10_percent_threshold) %>%
+  arrange(desc(acc))
+
+
+ggplot(top_10_percent_data, aes(x=reorder(combined_rue, acc), y=acc)) +
+  geom_bar(stat="identity", col="darkgrey",aes(fill=acc)) +
+  coord_flip() +
+  theme_minimal() + 
+  labs(title="",
+       x="Intersections",
+       y="Nombre d'accidents")+
+  theme(legend.position = "none")
+
+top_15_fi <- dat_descrp %>%
+  arrange(desc(fi)) %>%
+  slice(1:15) %>%
+  dplyr::select(combined_rue, fi)
+
+top_15_pi <- dat_descrp %>%
+  arrange(desc(pi)) %>%
+  slice(1:15) %>%
+  dplyr::select(combined_rue, pi)
+
+print(top_15_fi)
+print(top_15_pi)
+
+summary(dat_descrp)
+summary(dat2)
+
 ```
 
 ```{r}
