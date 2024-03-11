@@ -680,18 +680,22 @@ dat_sum <- dat %>%
   ungroup()
 
 
-montreal_n_sum <- montreal_n %>%
-  left_join(dat_sum, by = c("NOM" = "borough")) %>%
-  mutate(somme = ifelse(is.na(somme), 0, somme))
 
+# Plotting the heatmap without axis lines/text and with top 3 borough labels
 ggplot(data = montreal_n_sum) +
   geom_sf(aes(fill = somme), color = "black") + # Use 'somme' for the fill, no border color
-  scale_fill_gradient(low = "lightblue", high = "red", 
+  scale_fill_gradient(low = "lightblue", high = "red",
                       na.value = "white", name = "Accident Sum") +
   labs(title = "Heatmap of Accident Sums by Borough",
-       subtitle = "Montréal") +
+       subtitle = "Montreal",
+       x = "", y = "") +
   theme_minimal() +
-  theme(legend.position = "right")
+  theme(legend.position = "right",
+        axis.text = element_blank(),
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
 
 ```
 
