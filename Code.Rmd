@@ -672,9 +672,9 @@ heatmap <- ggplot(data = montreal_n_sum) +
   geom_sf(aes(fill = somme), color = "black") +
   scale_fill_gradient(low = "lightblue", high = "firebrick2", na.value = "white") +
   labs(title = "carte thermique du risque d'accident par arrondissement",
-       subtitle = "Montréal", x = "", y = "") +
-  theme_void() +
-  theme(legend.position = "none")
+       subtitle = "Montréal", x = "", y = "",
+       fill = "Nombre \nd'addicents prédit") +
+  theme_void()
 
 ```
 
@@ -684,8 +684,10 @@ heatmap <- ggplot(data = montreal_n_sum) +
 
 heatmap1 <- heatmap+labs(title = "",
        subtitle = "", x = "", y = "")
-ggsave("heatmap_transparent.png", heatmap, bg = "transparent", width = 10, height = 8)
+#ggsave("heatmap_transparent.png", heatmap, bg = "transparent", width = 10, height = 8)
+
 heatmap1
+heatmap
 
 ```
 
