@@ -37,7 +37,7 @@ library(glmnet)
 library(grpreg)
 library(rpart)
 library(randomForest)
-library(gbm3)
+library(gbm)
 library(mboost)
 library(MASS)
 library(caret)
@@ -81,13 +81,14 @@ dat = dat %>% mutate(check = ifelse(cli == 0 & cri == 0 & cti == 0, 1,0))
 dat_check = dat[dat$check==1,]
 
 dat = dat %>% 
-    mutate(#pi = if_else(check == 1, median(dat$pi), pi),
-         #cri = if_else(check == 1, median(dat$cri), cri),
-         #cli = if_else(check == 1, median(dat$cli), cli),
-         #cti = if_else(check == 1, median(dat$cti), cti),
+    mutate(pi = if_else(check == 1, median(dat$pi), pi),
+         cri = if_else(check == 1, median(dat$cri), cri),
+         cli = if_else(check == 1, median(dat$cli), cli),
+         cti = if_else(check == 1, median(dat$cti), cti),
          ln_cti = if_else(check == 1, median(dat$ln_cti), ln_cti),
          ln_cli = if_else(check == 1, median(dat$ln_cli), ln_cli),
-         ln_cri = if_else(check == 1, median(dat$ln_cri), ln_cri))
+         ln_cri = if_else(check == 1, median(dat$ln_cri), ln_cri),
+         ln_pi = ifelse(check ==1, median(dat$ln_pi), ln_pi))
 
 dat = dat %>% dplyr::select(-c("pi", "fi", "fli", "fri", "fti", "cli", "cri", "cti", "check"))
 
@@ -111,7 +112,10 @@ counts <- table(dat$borough)
 
 boroughs_to_remove <- names(counts[counts < 5])
 
-dat <- dat[!dat$borough %in% boroughs_to_remove, ]
+dat$b_check <- ifelse(dat$borough %in% boroughs_to_remove, 1, 0)
+
+dat = dat %>% mutate(borough = ifelse(b_check == 1, "Autres", borough)) %>% 
+  dplyr::select(-b_check)
 ```
 
 
@@ -273,7 +277,7 @@ train_control <- trainControl(method = "repeatedcv",
                               number = 5,
                               repeats = 5,
                               search = "random",
-                              verboseIter = TRUE)
+                              verboseIter = FALSE)
 
 # Train the model
 elnet <- train(acc ~ .,
@@ -298,7 +302,7 @@ train_control <- trainControl(method = "repeatedcv",
                               number = 5,
                               repeats = 5,
                               search = "random",
-                              verboseIter = TRUE)
+                              verboseIter = FALSE)
 
 # Train the model
 elnet_poisson <- train(acc ~ .,
@@ -365,7 +369,7 @@ errlassrel_poisson
 
 
 ```{r}
-group=c(1:42,rep(43,20))
+group=c(1:42,rep(43,21))
 grlassofit=grpreg(xdumtrain, datdumtrain$acc, group, penalty="grLasso")
 plot(grlassofit)
 
@@ -378,7 +382,7 @@ row.names(errgrlasso)=c("group lasso")
 ```
 
 ```{r}
-group=c(1:42,rep(43,20))
+group=c(1:42,rep(43,21))
 grlassofit=grpreg(xdumtrain, datdumtrain$acc, group, penalty="grLasso", family = "poisson")
 plot(grlassofit)
 
