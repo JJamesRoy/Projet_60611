@@ -565,11 +565,9 @@ prisque <- ggplot(top_15_data, aes(x=reorder(combined_rue, pred_rf_full), y=pred
   theme_classic(base_size = 12) + 
   labs(title="Risque d'accident entre véhicule \net civil par intersection",
        x="",  
-       y="Risque d'accidents") +
+       y="Nombre d'accidents prédit") +
   theme(legend.position = "none",
         axis.text.y = element_text(color = "black", size = rel(1.1)),
-        axis.text.x = element_blank(),   
-        axis.ticks.x = element_blank(),
         panel.background = element_rect(fill='transparent'),
         plot.background = element_rect(fill='transparent', color=NA), 
         panel.grid.major = element_blank(),
@@ -578,8 +576,11 @@ prisque <- ggplot(top_15_data, aes(x=reorder(combined_rue, pred_rf_full), y=pred
         legend.box.background = element_rect(fill='transparent'),
         text = element_text(size = 12))
  
- ggsave("prisque_transparent.png", prisque, bg = "transparent", width = 8, height = 7, dpi = 300)
+# pour sauvegarder prag
+#ggsave("prisque_transparent.png", prisque, bg = "transparent", width = 9, height = 5, dpi = 300)
  
+
+
 ```
 
 
