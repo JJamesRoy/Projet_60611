@@ -3,33 +3,9 @@ title: "TRAVAIL DE SESSION – ÉTUDE DE CAS"
 subtitle: "MATH60611 - Méthodes avancées en exploitation de données"
 author: "Alfred Assal et James Roy"
 date: "`r Sys.Date()`"
-geometry: margin=1.5cm
-output:
-  # bookdown::html_document2:
-  #   toc: yes
-  #   number_sections: yes
-  #   toc_float:
-  #     collapsed: no
-  # #   toc_depth: '3'
-  bookdown::pdf_document2:
-    toc: yes
-    toc_depth: 1
-    extra_dependencies: ["flafter"]
-params:
-  created_date: "2023-09-12"
-header-includes:
-- \usepackage{float}
-- \usepackage{amsmath}
-- \usepackage{ragged2e}
+output: html_document
 ---
 
-
-L’objectif de votre mandat est de fournir à la ville un classement des 1864 intersections
-en termes de sécurité (des plus dangereuses aux moins dangereuses), afin qu’elle puisse
-prioriser les intersections les plus à risque dans le but d’améliorer les infrastructures.
-
-Votre analyse devra se baser sur une modélisation des accidents observés dans les 10
-dernières années (variable acc)
 
 ```{r}
 library(tidyverse)
@@ -246,11 +222,13 @@ errlmfit_pois
 ```
 
 
-```{r}
+```{r lasso}
+
 lasso=wrapglmnet(xdumtrain,datdumtrain$acc,xdumtest, datdumtest$acc,1, family = "gaussian")
 dim(lasso$coef)
 
 lasso$error
+
 ```
 
 ```{r}
@@ -576,10 +554,10 @@ prisque <- ggplot(top_15_data, aes(x=reorder(combined_rue, pred_rf_full), y=pred
         legend.box.background = element_rect(fill='transparent'),
         text = element_text(size = 12))
  
-# pour sauvegarder prag
-#ggsave("prisque_transparent.png", prisque, bg = "transparent", width = 9, height = 5, dpi = 300)
+# pour sauvegarder 
+#ggsave("prisque_transparent.png", prisque, bg = "transparent", width = 7, height = 6, dpi = 300)
  
-
+prisque
 
 ```
 
@@ -688,7 +666,6 @@ heatmap1 <- heatmap+labs(title = "",
 #ggsave("heatmap_transparent.png", heatmap, bg = "transparent", width = 10, height = 8)
 
 heatmap1
-heatmap
 
 ```
 
