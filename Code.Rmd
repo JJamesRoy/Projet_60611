@@ -7,6 +7,7 @@ output: html_document
 ---
 
 
+
 ```{r}
 library(tidyverse)
 library(glmnet)
@@ -531,7 +532,8 @@ predictions_df <- data.frame(int_no = dat$int_no, pred_rf_full = predrf_full)
 heatmap_dat <- left_join(dat_descrp,predictions_df)
 predictions_df$classement <- rank(-predictions_df$pred_rf_full)
 dat_final = predictions_df %>% dplyr::select(-pred_rf_full)
-write.csv(dat_final,"classement.csv")
+dat_final <- dat_final[order(dat_final$classement),]
+write.csv(dat_final,"classement.csv", row.names = FALSE)
 
 top_15_data <- heatmap_dat %>%
   arrange(desc(pred_rf_full)) %>%
